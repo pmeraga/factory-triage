@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-client/
+.generated/
+.env
+.env.*
+!.env.example
+*.tar.gz
+.DS_Store
+.sites/
+.openai/preview.json
+coverage/
