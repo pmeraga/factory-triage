@@ -27,12 +27,12 @@ Conflicting IDs: `evt_005087`, `evt_009610`, `evt_009935`, `evt_014575`, and `ev
 | Late completion | Completion timestamp strictly after its recorded target due timestamp |
 | On-time rate | Completed jobs finishing on or before their due timestamps divided by completed jobs with a due timestamp |
 | Job age | Creation to completion, or creation to the snapshot clock for an open job |
-| Queue time | Creation to observed job start, where both events exist |
+| Queue time | Tool-ready timestamp to observed job start, where both events exist |
 | Cycle duration | Recorded `metadata.cycle_time_seconds`; a cycle duration is distinct from a job’s wall-clock lead time |
 
 The initial whole-dataset cohort has **281 completed jobs**, **31 open jobs**, **26 overdue open jobs**, and **75 late completed jobs**. The 31 open jobs comprise 10 without a start event and 21 with an observed start but no completion. Counts describe recorded events, not an independently verified physical factory state.
 
-Filtering changes the selected job cohort. A machine filter selects jobs with an event on that machine; job-level outcomes still describe the whole selected job. It does not attribute a job’s entire loss or lead time to that machine. A filtered percentage must retain its matching denominator; a cohort without eligible completions has an unavailable rate rather than a zero rate.
+Filtering changes the selected job cohort. On Overview, summary cards and charts include all statuses within the search and dimension filters; status tabs select the attention queue and its CSV export. All Jobs summaries follow every selected filter. Quality checks include all statuses within the selected search and dimensions. A machine filter selects jobs with an event on that machine; job-level outcomes still describe the whole selected job. It does not attribute a job’s entire loss or lead time to that machine. A filtered percentage retains its matching denominator; a cohort without eligible completions has an unavailable rate rather than a zero rate.
 
 ## Blocks and waiting
 

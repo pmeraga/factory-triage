@@ -2,6 +2,8 @@
 
 A manufacturing operations desk: find overdue and blocked jobs, inspect their lifecycle, and trace every issue to source events. Built from the supplied synthetic manufacturing log; this is a historical snapshot, not a live factory feed.
 
+Deployment: https://factory-triage-helicon.tanbud16.chatgpt.site (HTTP Basic credentials supplied separately).
+
 ## Run locally
 
 Requires Node.js 22 or later.
@@ -24,7 +26,9 @@ npm run typecheck
 npm run build
 ```
 
-The build produces a deployable Worker at `dist/server/index.js`. `.openai/hosting.json` identifies its Sites project. Sites publication also stores the pushed source commit and deployment artifact. The initial deployment uses owner-private Sites access, with HTTP Basic as an additional gate; external reviewers need an appropriate Sites sharing grant.
+The build produces a deployable Worker at `dist/server/index.js`. `.openai/hosting.json` identifies its Sites project. Sites publication stores the pushed source commit and deployment artifact. The deployment is available to anyone with the supplied HTTP Basic credentials; ChatGPT sign-in is not required. Every route, including HTML, API, icons, and CSV exports, is protected by the Worker.
+
+Source repository: https://github.com/pmeraga/factory-triage (private; owned by `pmeraga`).
 
 ## Stack and decisions
 
