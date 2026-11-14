@@ -1,0 +1,106 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import adapter from '../api/index.mjs';
+
+const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+const env = { BASIC_AUTH_USERNAME: 'vercel-test-reviewer', BASIC_AUTH_PASSWORD: 'adapter-only-test-password' };
+const auth = 'Basic ' + Buffer.from(`${env.BASIC_AUTH_USERNAME}:${env.BASIC_AUTH_PASSWORD}`).toString('base64');
+const routeParameter = '__factory_triage_path';
+
+// Model the configured rewrite, including ordinary query-string forwarding.
+// The deployed smoke test additionally verifies Vercel's routing behavior.
+function rewrittenRequest(path, authorization = auth, method = 'GET') {
+  const source = new URL(path, 'https://factory.vercel.test');
+  const route = config.routes[0];
+  assert.equal(route.src, '/(.*)');
+  const match = source.pathname.match(new RegExp(`^${route.src}$`));
+  assert.ok(match);
+  const destination = new URL(route.dest.replace('$1', () => match[1]), source.origin);
+  for (const [key, value] of source.searchParams) destination.searchParams.append(key, value);
+  return new Request(destination, { method, headers: authorization ? { Authorization: authorization } : {} });
+}
+
+async function withCredentials(credentials, action) {
+  const previous = { BASIC_AUTH_USERNAME: process.env.BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD: process.env.BASIC_AUTH_PASSWORD };
+  for (const key of Object.keys(previous)) {
+    if (credentials[key] === undefined) delete process.env[key];
+    else process.env[key] = credentials[key];
+  }
+  try { return await action(); }
+  finally {
+    for (const key of Object.keys(previous)) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
+}
+
+test('Vercel configuration routes every request to the function before filesystem serving', () => {
+  assert.equal(config.framework, null);
+  assert.equal(config.outputDirectory, '.vercel-public');
+  assert.notEqual(config.outputDirectory, 'dist');
+  assert.notEqual(config.outputDirectory, 'dist-client');
+  assert.deepEqual(Object.keys(config.functions), ['api/index.mjs']);
+  assert.equal(config.functions['api/index.mjs'].includeFiles, 'dist/server/index.js');
+  assert.deepEqual(config.routes, [{ src: '/(.*)', dest: '/api/index?__factory_triage_path=/$1' }]);
+  assert.equal(config.rewrites, undefined);
+  assert.ok(!config.routes.some(route => route.handle === 'filesystem'));
+});
+
+test('Vercel adapter preserves root, job paths, queries, CSV, and HEAD', async () => {
+  await withCredentials(env, async () => {
+    const root = await adapter.fetch(rewrittenRequest('/?status=all'));
+    assert.equal(root.status, 200);
+    assert.match(root.headers.get('Content-Type'), /text\/html/);
+    const overview = await (await adapter.fetch(rewrittenRequest('/api/overview?status=blocked'))).json();
+    assert.equal(overview.stats.jobs, 9);
+    assert.ok(overview.jobs.every(job => job.blocked));
+    const scoped = await (await adapter.fetch(rewrittenRequest('/api/overview?status=completed&customer=cust_helix&search=job_'))).json();
+    assert.ok(scoped.jobs.length > 0);
+    assert.ok(scoped.jobs.every(job => job.completedAt && job.customerId === 'cust_helix'));
+    const job = await (await adapter.fetch(rewrittenRequest('/api/jobs/job_0220'))).json();
+    assert.equal(job.job.id, 'job_0220');
+    assert.equal(job.job.blockReason, 'missing_tool');
+    const csv = await adapter.fetch(rewrittenRequest('/api/export?status=blocked'));
+    assert.equal(csv.status, 200);
+    assert.match(csv.headers.get('Content-Type'), /text\/csv/);
+    assert.equal((await csv.text()).split('\r\n').length - 1, 9);
+    const head = await adapter.fetch(rewrittenRequest('/', auth, 'HEAD'));
+    assert.equal(head.status, 200);
+    assert.equal(await head.text(), '');
+    assert.equal(head.headers.get('Cache-Control'), 'no-store');
+  });
+});
+
+test('Vercel adapter fails closed and protects every route', async () => {
+  await withCredentials({}, async () => {
+    assert.equal((await adapter.fetch(rewrittenRequest('/'))).status, 503);
+    assert.equal((await adapter.fetch(rewrittenRequest('/api/overview'))).status, 503);
+  });
+  await withCredentials(env, async () => {
+    for (const path of ['/', '/favicon.svg', '/api/overview', '/api/jobs/job_0220', '/api/export', '/dist/server/index.js', '/data/manufacturing_events.jsonl', '/.generated/data.json', '/assets/app.js', '/deployment.txt']) {
+      const response = await adapter.fetch(rewrittenRequest(path, null));
+      assert.equal(response.status, 401, path);
+      assert.match(response.headers.get('WWW-Authenticate'), /Basic/);
+    }
+    assert.equal((await adapter.fetch(rewrittenRequest('/', 'Basic d3Jvbmc6d3Jvbmc='))).status, 401);
+    for (const path of ['/dist/server/index.js', '/data/manufacturing_events.jsonl', '/.generated/data.json', '/assets/app.js', '/deployment.txt']) {
+      assert.equal((await adapter.fetch(rewrittenRequest(path))).status, 404, path);
+    }
+    assert.equal((await adapter.fetch(rewrittenRequest('/api/overview', auth, 'POST'))).status, 405);
+  });
+});
+
+test('ambiguous or invalid rewrite paths cannot bypass authentication or change origin', async () => {
+  await withCredentials(env, async () => {
+    const invalid = new URL('https://factory.vercel.test/api/index');
+    invalid.searchParams.set(routeParameter, '//other.example/api/overview');
+    assert.equal((await adapter.fetch(new Request(invalid))).status, 401);
+    assert.equal((await adapter.fetch(new Request(invalid, { headers: { Authorization: auth } }))).status, 404);
+    const duplicate = new URL('https://factory.vercel.test/api/index');
+    duplicate.searchParams.append(routeParameter, '/');
+    duplicate.searchParams.append(routeParameter, '/api/overview');
+    assert.equal((await adapter.fetch(new Request(duplicate, { headers: { Authorization: auth } }))).status, 404);
+  });
+});

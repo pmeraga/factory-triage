@@ -37,6 +37,10 @@ for (const path of [
   "/api/jobs/job_0220",
   "/api/export",
   "/favicon.svg",
+  "/deployment.txt",
+  "/dist/server/index.js",
+  "/data/manufacturing_events.jsonl",
+  "/.generated/data.json",
 ]) {
   const response = await get(path);
   assert.equal(response.status, 401, `Unauthenticated ${path}`);
@@ -58,6 +62,9 @@ assert.equal(detail.job.blockReason, "missing_tool");
 const csvResponse = await get("/api/export?status=blocked", authorization);
 assert.equal(csvResponse.status, 200);
 assert.equal((await csvResponse.text()).split("\r\n").length - 1, 9);
+for (const path of ["/deployment.txt", "/dist/server/index.js", "/data/manufacturing_events.jsonl", "/.generated/data.json"]) {
+  assert.equal((await get(path, authorization)).status, 404, `Private file path ${path}`);
+}
 console.log(
   JSON.stringify(
     {

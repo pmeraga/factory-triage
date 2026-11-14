@@ -2,11 +2,11 @@
 
 A manufacturing operations desk: find overdue and blocked jobs, inspect their lifecycle, and trace every issue to source events. Built from the supplied synthetic manufacturing log; this is a historical snapshot, not a live factory feed.
 
-Deployment: https://factory-triage-helicon.tanbud16.chatgpt.site (HTTP Basic credentials supplied separately).
+Current deployment: https://factory-triage-helicon.tanbud16.chatgpt.site (HTTP Basic credentials supplied separately). Vercel deployment setup is documented below; the Sites URL remains available during the migration.
 
 ## Run locally
 
-Requires Node.js 22 or later.
+Requires Node.js **24.x**, matching `package.json` and the Vercel runtime.
 
 ```sh
 npm ci
@@ -26,9 +26,17 @@ npm run typecheck
 npm run build
 ```
 
-The build produces a deployable Worker at `dist/server/index.js`. `.openai/hosting.json` identifies its Sites project. Sites publication stores the pushed source commit and deployment artifact. The deployment is available to anyone with the supplied HTTP Basic credentials; ChatGPT sign-in is not required. Every route, including HTML, API, icons, and CSV exports, is protected by the Worker.
+The build produces a deployable Worker at `dist/server/index.js`. Every route, including HTML, API, icons, and CSV exports, is protected by its HTTP Basic gate. The current Sites deployment is available with the supplied credentials; ChatGPT sign-in is not required. `.openai/hosting.json` retains that project's deployment identity and history.
 
 Source repository: https://github.com/pmeraga/factory-triage (private; owned by `pmeraga`).
+
+## Deploy on Vercel
+
+Connect the GitHub repository `pmeraga/factory-triage` to the Vercel project for automatic deployments from commits. Use the repository's custom build settings in `vercel.json`, with Node.js **24.x** and build command `npm run vercel-build`.
+
+Set `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` as runtime secrets for **both Production and Preview**, then deploy or redeploy. Reuse the credentials supplied separately for the existing deployment. Do not put their values in Git, build arguments, or `VITE_` variables. Missing credentials fail closed with HTTP 503.
+
+The custom build regenerates the server dataset, builds the embedded frontend and Worker, and prepares `.vercel-public` with only a fixed, harmless `deployment.txt` marker because Vercel requires a nonempty output directory. The build rejects any other files in that directory. A catch-all route runs before filesystem serving and sends every request, including requests for the marker, to `api/index.mjs`, which forwards them to the same Worker's `fetch` handler and authentication gate. **Do not publish `dist`, `dist-client`, the raw log, or the generated dataset as static assets:** the server bundle contains the manufacturing data. Vercel serves the application through the function, including its HTML and exports.
 
 ## Stack and decisions
 
