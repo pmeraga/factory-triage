@@ -2,7 +2,9 @@
 
 A manufacturing operations desk: find overdue and blocked jobs, inspect their lifecycle, and trace every issue to source events. Built from the supplied synthetic manufacturing log; this is a historical snapshot, not a live factory feed.
 
-Current deployment: https://factory-triage-helicon.tanbud16.chatgpt.site (HTTP Basic credentials supplied separately). Vercel deployment setup is documented below; the Sites URL remains available during the migration.
+Production: https://factory-triage-psi.vercel.app (HTTP Basic credentials supplied separately).
+
+Vercel project: https://vercel.com/yotta-robotics/factory-triage. The private GitHub repository is connected for automatic deployments. The earlier Sites deployment remains available at https://factory-triage-helicon.tanbud16.chatgpt.site.
 
 ## Run locally
 
@@ -32,7 +34,7 @@ Source repository: https://github.com/pmeraga/factory-triage (private; owned by 
 
 ## Deploy on Vercel
 
-Connect the GitHub repository `pmeraga/factory-triage` to the Vercel project for automatic deployments from commits. Use the repository's custom build settings in `vercel.json`, with Node.js **24.x** and build command `npm run vercel-build`.
+The GitHub repository `pmeraga/factory-triage` is connected to the Vercel project for automatic deployments from commits. The repository's custom build settings are in `vercel.json`, with Node.js **24.x** and build command `npm run vercel-build`.
 
 Set `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` as runtime secrets for **both Production and Preview**, then deploy or redeploy. Reuse the credentials supplied separately for the existing deployment. Do not put their values in Git, build arguments, or `VITE_` variables. Missing credentials fail closed with HTTP 503.
 
