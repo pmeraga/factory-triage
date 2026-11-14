@@ -61,6 +61,6 @@ Defect totals sum quantities on failed-inspection records by recorded defect cod
 
 ## Reproducibility and limits
 
-Source data, transformation code, metric definitions, tests, and deployment metadata are committed. Credentials and generated build outputs are excluded. The API serves normalized records behind authentication, and the UI links aggregate flags back to job-level evidence.
+Source data, transformation code, metric definitions, tests, and deployment metadata are committed. Generated build outputs are excluded. The public, read-only API serves normalized synthetic records with their provenance, and the UI links aggregate flags back to job-level evidence. No login is required. The raw source file and generated server bundle are not served as downloadable static assets.
 
 The synthetic snapshot does not provide a production schedule, ideal cycle standard, complete inventory, validated revenue model, or explicit revision precedence for conflicts. The application therefore offers recorded exceptions and comparisons without forecasts, estimated savings, or implied real-time status.

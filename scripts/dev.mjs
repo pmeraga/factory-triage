@@ -11,20 +11,6 @@ if (existsSync(".env")) {
       process.env[match[1]] = match[2].replace(/^(['"])(.*)\1$/, "$2");
   }
 }
-const strict = process.argv.includes("--strict-auth");
-const env = {
-  BASIC_AUTH_USERNAME: process.env.BASIC_AUTH_USERNAME,
-  BASIC_AUTH_PASSWORD: process.env.BASIC_AUTH_PASSWORD,
-};
-if (strict && (!env.BASIC_AUTH_USERNAME || !env.BASIC_AUTH_PASSWORD))
-  throw new Error(
-    "Strict auth requires BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD. Set them in .env or environment.",
-  );
-const preview = !env.BASIC_AUTH_USERNAME && !env.BASIC_AUTH_PASSWORD;
-if (preview)
-  console.log(
-    "Loopback-only local preview: authentication bypassed. Deployed Worker always requires configured credentials.",
-  );
 execFileSync(process.execPath, ["scripts/build.mjs"], { stdio: "inherit" });
 let worker = await import(
   pathToFileURL(resolve("dist/server/index.js")).href + "?v=" + Date.now()
@@ -43,10 +29,7 @@ const server = createServer(async (req, res) => {
       method: req.method,
       headers: requestHeaders,
     });
-    // The bypass exists only in this Node loopback adapter, never the deployed artifact.
-    const response = preview
-      ? await worker.handleRequest(request, {})
-      : await worker.default.fetch(request, env);
+    const response = await worker.default.fetch(request);
     res.writeHead(response.status, Object.fromEntries(response.headers));
     res.end(Buffer.from(await response.arrayBuffer()));
   } catch (error) {

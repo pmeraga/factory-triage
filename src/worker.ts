@@ -2,10 +2,6 @@ import dataset from "../.generated/data.json";
 import { page } from "../.generated/page";
 import { filterJobs, overviewFor } from "./domain.mjs";
 
-export interface Env {
-  BASIC_AUTH_USERNAME?: string;
-  BASIC_AUTH_PASSWORD?: string;
-}
 const headers = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
@@ -19,48 +15,13 @@ const json = (value: unknown, status = 200) =>
     headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
   });
 
-async function secureEqual(a: string, b: string) {
-  const encoder = new TextEncoder();
-  const [ha, hb] = await Promise.all([
-    crypto.subtle.digest("SHA-256", encoder.encode(a)),
-    crypto.subtle.digest("SHA-256", encoder.encode(b)),
-  ]);
-  const av = new Uint8Array(ha),
-    bv = new Uint8Array(hb);
-  let difference = 0;
-  for (let i = 0; i < av.length; i++) difference |= av[i] ^ bv[i];
-  return difference === 0;
-}
-
-export async function authorize(request: Request, env: Env): Promise<boolean> {
-  const authorization = request.headers.get("Authorization");
-  if (!authorization?.startsWith("Basic ")) return false;
-  try {
-    const decoded = new TextDecoder().decode(
-      Uint8Array.from(atob(authorization.slice(6)), (c) => c.charCodeAt(0)),
-    );
-    const colon = decoded.indexOf(":");
-    if (colon < 0) return false;
-    const checks = await Promise.all([
-      secureEqual(decoded.slice(0, colon), env.BASIC_AUTH_USERNAME ?? ""),
-      secureEqual(decoded.slice(colon + 1), env.BASIC_AUTH_PASSWORD ?? ""),
-    ]);
-    return checks.every(Boolean);
-  } catch {
-    return false;
-  }
-}
-
 function csvCell(value: unknown) {
   let text = value === null || value === undefined ? "" : String(value);
   if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
   return '"' + text.replaceAll('"', '""') + '"';
 }
 
-export async function handleRequest(
-  request: Request,
-  env: Env,
-): Promise<Response> {
+export async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   if (request.method !== "GET" && request.method !== "HEAD") {
     return new Response("Method not allowed", {
@@ -148,19 +109,8 @@ export async function handleRequest(
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    if (!env.BASIC_AUTH_USERNAME || !env.BASIC_AUTH_PASSWORD)
-      return json({ error: "Service credentials are not configured." }, 503);
-    if (!(await authorize(request, env)))
-      return new Response("Authentication required", {
-        status: 401,
-        headers: {
-          ...headers,
-          "Content-Type": "text/plain; charset=utf-8",
-          "WWW-Authenticate": 'Basic realm="Factory Triage", charset="UTF-8"',
-        },
-      });
-    const response = await handleRequest(request, env);
+  async fetch(request: Request): Promise<Response> {
+    const response = await handleRequest(request);
     return request.method === "HEAD"
       ? new Response(null, {
           status: response.status,
