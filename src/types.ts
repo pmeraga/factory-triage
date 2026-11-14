@@ -1,7 +1,7 @@
 export interface ManufacturingEvent {
   event_id: string; timestamp: string; event_type: string; job_id: string;
   part_id: string; customer_id: string; machine_id: string | null;
-  material: string; quantity: number; metadata: Record<string, any>;
+  material: string; quantity: number | null; metadata: Record<string, any>;
   conflict?: boolean; variants?: ManufacturingEvent[];
 }
 export interface BlockInterval { start: string; end: string | null; reason: string; hours: number; eventId: string; }
