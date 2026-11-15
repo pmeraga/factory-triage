@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 
-// Preserve the existing Sites artifact. Vercel serves the same application
-// through api/index.mjs, with no public HTML, assets, source, or data files.
+// Vercel serves the application through api/index.mjs. Source and generated
+// server files are excluded from the static output.
 // Vercel rejects an entirely empty output folder, so it receives one fixed,
 // harmless marker. The catch-all route runs before filesystem serving.
 execFileSync(process.execPath, ["scripts/build.mjs"], { stdio: "inherit" });

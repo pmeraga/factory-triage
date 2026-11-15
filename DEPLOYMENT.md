@@ -7,10 +7,10 @@
 - Runtime: Node.js 24.x
 - Build: `npm run vercel-build`
 
-The application is public and read-only, with synthetic manufacturing data. No login is required on Production or Preview. The API adapter forwards application requests to the Worker handler; neither the raw source dataset nor the generated server bundle is served as a static file.
+The application is public and read-only, with synthetic manufacturing data. The public production URL requires no login. GitHub pushes to `main` trigger production deployments; other branches can produce preview deployments.
+
+The build generates the dataset and frontend, then bundles a Fetch API service at `dist/server/index.js`. Vercel's Node.js adapter in `api/index.mjs` forwards application requests to that service. The raw source dataset and generated server bundle are not served as static files.
 
 Vercel requires a nonempty static output directory. The build writes only a harmless `deployment.txt` marker to `.vercel-public` and rejects other files. The catch-all route runs before filesystem handling, so even marker requests go through the application handler.
-
-Git deployments require a commit author with project access. This checkout uses the authorized `pmeraga` GitHub account's noreply email in repository-local Git configuration. Other repositories' Git settings are unchanged.
 
 Release verification covers automated tests, TypeScript, and the Vercel provider build. Public smoke checks should return HTTP 200 for the app, overview API, a valid job API, and CSV export without credentials. Raw source, generated data, and server-bundle paths must return HTTP 404.

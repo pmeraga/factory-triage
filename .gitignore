@@ -7,8 +7,6 @@ dist-client/
 !.env.example
 *.tar.gz
 .DS_Store
-.sites/
-.openai/preview.json
 coverage/
 .vercel/
 .vercel-public/

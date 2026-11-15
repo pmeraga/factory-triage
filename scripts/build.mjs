@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync, cpSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { build } from "esbuild";
 
 execFileSync(process.execPath, ["scripts/ingest.mjs"], { stdio: "inherit" });
@@ -37,8 +37,8 @@ writeFileSync(
   ".generated/page.ts",
   "export const page = " + JSON.stringify(html) + ";\n",
 );
+rmSync("dist", { recursive: true, force: true });
 mkdirSync("dist/server", { recursive: true });
-mkdirSync("dist/.openai", { recursive: true });
 await build({
   entryPoints: ["src/worker.ts"],
   outfile: "dist/server/index.js",
@@ -49,7 +49,6 @@ await build({
   minify: true,
   sourcemap: false,
 });
-cpSync(".openai/hosting.json", "dist/.openai/hosting.json");
 const output = readFileSync("dist/server/index.js", "utf8");
 if (!output.includes("fetch(") && !output.includes("fetch:"))
   throw new Error("Worker fetch handler missing");
