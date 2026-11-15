@@ -47,7 +47,12 @@ export async function handleRequest(request: Request): Promise<Response> {
       return json({ ok: true, service: "factory-triage", asOf: dataset.asOf });
     const jobMatch = url.pathname.match(/^\/api\/jobs\/([^/]+)$/);
     if (jobMatch) {
-      const id = decodeURIComponent(jobMatch[1]);
+      let id: string;
+      try {
+        id = decodeURIComponent(jobMatch[1]);
+      } catch {
+        return json({ error: "Invalid job identifier" }, 400);
+      }
       const job = dataset.jobs.find((j: { id: string }) => j.id === id);
       if (!job) return json({ error: "Job not found" }, 404);
       return json({

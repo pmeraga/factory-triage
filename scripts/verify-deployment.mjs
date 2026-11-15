@@ -33,6 +33,14 @@ assert.equal(overview.stats.blockedOpen, 9);
 assert.equal(overview.dataQuality.conflictingIds.length, 5);
 const detail = await (await get("/api/jobs/job_0220")).json();
 assert.equal(detail.job.blockReason, "missing_tool");
+const cycleJob = await (await get("/api/jobs/job_0166")).json();
+assert.equal(cycleJob.job.cycleSecondsMedian, 1543);
+for (const path of ["/api/jobs/%", "/api/jobs/%ZZ"]) {
+  assert.ok(
+    [400, 404].includes((await get(path)).status),
+    `Malformed job URL ${path}`,
+  );
+}
 const csv = await get("/api/export?status=blocked");
 assert.equal(csv.status, 200);
 assert.equal((await csv.text()).split("\r\n").length - 1, 9);

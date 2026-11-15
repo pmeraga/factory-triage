@@ -98,6 +98,21 @@ function median(values) {
     : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+function agreedCycleDuration(event) {
+  const variants = event.conflict ? (event.variants ?? []) : [event];
+  if (!variants.length) return null;
+  const duration = variants[0].metadata?.cycle_time_seconds;
+  return finite(duration) &&
+    variants.every(
+      (variant) =>
+        variant.event_type === "cycle_completed" &&
+        finite(variant.metadata?.cycle_time_seconds) &&
+        variant.metadata.cycle_time_seconds === duration,
+    )
+    ? duration
+    : null;
+}
+
 function intervalsFor(events, asOf, completedAt) {
   const intervals = [];
   let active = null;
@@ -239,11 +254,9 @@ function jobFromEvents(id, events, asOf) {
       .map((event) => event.event_id),
     queueHours:
       ready && started ? elapsed(ready.timestamp, started.timestamp) : null,
-    cycleSecondsMedian: median(
-      trusted
-        .filter((event) => event.event_type === "cycle_completed")
-        .map((event) => event.metadata?.cycle_time_seconds),
-    ),
+    // Quantity uncertainty does not invalidate an independently agreed duration.
+    // Each normalized event contributes at most one duration, never one per variant.
+    cycleSecondsMedian: median(events.map(agreedCycleDuration)),
     inspectionPassed: passed,
     inspectionFailed: failed,
   };

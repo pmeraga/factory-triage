@@ -44,6 +44,10 @@ test("real dataset reconciles source rows without silently resolving conflicts",
   assert.equal(dataset.stats.totalGood, 78555);
   assert.equal(dataset.stats.totalScrap, 7613);
   assert.equal(dataset.stats.qualityMismatchJobs, 13);
+  assert.equal(
+    dataset.jobs.find((job) => job.id === "job_0166").cycleSecondsMedian,
+    1543,
+  );
   const conflict = Object.values(dataset.eventsByJob)
     .flat()
     .find((item) => item.event_id === "evt_005087");
@@ -69,6 +73,49 @@ test("normalization is deterministic, preserves inputs, and recognizes key-order
     JSON.stringify(result),
     JSON.stringify(normalizeEvents([first, duplicate, conflict])),
   );
+});
+
+test("cycle duration survives quantity conflicts only when every variant agrees", () => {
+  const rows = [
+    event("created", "job_created", "00:00", 10),
+    event("quantity-conflict", "cycle_completed", "01:00", 4, {
+      cycle_time_seconds: 600,
+    }),
+    event("quantity-conflict", "cycle_completed", "01:00", 5, {
+      cycle_time_seconds: 600,
+    }),
+    event("duration-conflict", "cycle_completed", "02:00", 4, {
+      cycle_time_seconds: 900,
+    }),
+    event("duration-conflict", "cycle_completed", "02:00", 4, {
+      cycle_time_seconds: 1200,
+    }),
+    event("type-conflict", "cycle_completed", "03:00", 4, {
+      cycle_time_seconds: 1500,
+    }),
+    event("type-conflict", "sensor_glitch", "03:00", 4, {
+      cycle_time_seconds: 1500,
+    }),
+    event("missing-duration", "cycle_completed", "04:00", 4),
+    event("missing-duration", "cycle_completed", "04:00", 4, {
+      cycle_time_seconds: 1800,
+    }),
+    event("trusted-cycle", "cycle_completed", "05:00", 4, {
+      cycle_time_seconds: 1200,
+    }),
+  ];
+  const result = buildDataset(rows);
+  // Exactly one 600-second observation and one 1200-second observation qualify.
+  assert.equal(result.jobs[0].cycleSecondsMedian, 900);
+  const quantityConflict = result.eventsByJob.test.find(
+    (item) => item.event_id === "quantity-conflict",
+  );
+  assert.equal(quantityConflict.quantity, null);
+  assert.deepEqual(
+    quantityConflict.variants.map((item) => item.quantity),
+    [4, 5],
+  );
+  assert.equal(result.dataQuality.conflictingIds.length, 4);
 });
 
 test("block state follows lifecycle pairs rather than the latest arbitrary event", () => {

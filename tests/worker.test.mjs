@@ -75,6 +75,9 @@ test("filters and CSV export agree; empty cohorts retain null rates", async () =
   assert.equal(empty.stats.scrapRate, null);
 });
 test("unknown jobs, unsupported methods, and HEAD have correct HTTP behavior", async () => {
+  for (const path of ["/api/jobs/%", "/api/jobs/%ZZ", "/api/jobs/%E0%A4"]) {
+    assert.equal((await worker.fetch(request(path))).status, 400, path);
+  }
   assert.equal(
     (await worker.fetch(request("/api/jobs/not-a-job"))).status,
     404,

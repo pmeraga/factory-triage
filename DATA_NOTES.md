@@ -12,6 +12,7 @@ Ingestion is deterministic and can be rerun from the committed source file. Even
 
 - **14 exact duplicate rows:** collapse identical records for calculation, retaining the original file for audit.
 - **5 conflicting event IDs:** each identifies two `cycle_completed` variants with different quantities and no revision marker. The normalized event retains its variants, is marked as conflicting, and has unresolved (`null`) quantity. Neither candidate is silently selected for production-quantity totals.
+- **Known cycle durations:** a quantity conflict does not discard a duration when every variant agrees on the event type and recorded duration. That duration contributes once per unique event; conflicting or missing durations are excluded.
 - **Lifecycle events:** job state comes from meaningful transitions. A maintenance ping, handoff, inspection, or cycle after a block does not itself clear the block.
 - **Unknown metadata:** preserve available event metadata for the evidence view. Missing fields do not acquire invented values.
 
