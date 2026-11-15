@@ -46,6 +46,7 @@ export interface Job {
   goodQuantity: number | null;
   scrapQuantity: number | null;
   machineIds: string[];
+  unassignedMachineEvents?: number;
   toolId: string | null;
   eventCount: number;
   qualityMismatch: boolean;
@@ -84,6 +85,8 @@ export interface DataQuality {
   }[];
 }
 export interface Overview {
+  window?: import("./telemetry-types").AnalysisWindow;
+  windowEventCount?: number;
   asOf: string;
   periodStart: string;
   stats: Stats;
@@ -118,6 +121,7 @@ export interface Overview {
   };
 }
 export interface JobDetail {
+  asOf?: string;
   job: Job;
   events: ManufacturingEvent[];
   blockIntervals: BlockInterval[];

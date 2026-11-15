@@ -1,3 +1,5 @@
+import { pacificDay } from "./time.mjs";
+
 /** Deterministic, dependency-free projections of the source event log. */
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -52,9 +54,16 @@ export function normalizeEvents(rawRows) {
         `Invalid required event fields at source line ${index + 1}`,
       );
     }
-    const group = byId.get(row.event_id) ?? { variants: new Map(), lines: [] };
+    const group = byId.get(row.event_id) ?? {
+      variants: new Map(),
+      variantLines: new Map(),
+      lines: [],
+    };
     const key = stable(row);
     if (!group.variants.has(key)) group.variants.set(key, structuredClone(row));
+    const variantLines = group.variantLines.get(key) ?? [];
+    variantLines.push(index + 1);
+    group.variantLines.set(key, variantLines);
     group.lines.push(index + 1);
     byId.set(row.event_id, group);
   });
@@ -74,6 +83,7 @@ export function normalizeEvents(rawRows) {
     if (variants.length > 1) {
       event.conflict = true;
       event.variants = variants;
+      event.variantSourceLineNumbers = [...group.variantLines.values()];
       // There is no revision marker establishing an authoritative variant.
       event.quantity = null;
       conflictingIds.push(id);
@@ -98,7 +108,7 @@ function median(values) {
     : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-function agreedCycleDuration(event) {
+export function agreedCycleDuration(event) {
   const variants = event.conflict ? (event.variants ?? []) : [event];
   if (!variants.length) return null;
   const duration = variants[0].metadata?.cycle_time_seconds;
@@ -120,7 +130,8 @@ function intervalsFor(events, asOf, completedAt) {
   let repeatedBlocks = 0;
   for (const event of events) {
     if (event.conflict) continue;
-    if (completedAt && event.timestamp > completedAt) continue;
+    if (completedAt && Date.parse(event.timestamp) > Date.parse(completedAt))
+      continue;
     if (event.event_type === "job_blocked") {
       if (active) {
         repeatedBlocks++;
@@ -226,8 +237,12 @@ function jobFromEvents(id, events, asOf) {
         : started
           ? "in_progress"
           : "not_started",
-    overdue: Boolean(!completed && dueAt && dueAt < asOf),
-    late: Boolean(completed && dueAt && completed.timestamp > dueAt),
+    overdue: Boolean(
+      !completed && dueAt && Date.parse(dueAt) < Date.parse(asOf),
+    ),
+    late: Boolean(
+      completed && dueAt && Date.parse(completed.timestamp) > Date.parse(dueAt),
+    ),
     blocked: Boolean(activeBlock),
     blockReason: activeBlock?.reason ?? null,
     blockedSince: activeBlock?.start ?? null,
@@ -242,6 +257,7 @@ function jobFromEvents(id, events, asOf) {
     goodQuantity: good,
     scrapQuantity: scrap,
     machineIds: unique(events.map((event) => event.machine_id)),
+    unassignedMachineEvents: events.filter((event) => !event.machine_id).length,
     toolId:
       created.metadata?.tool_id ??
       ready?.metadata?.tool_id ??
@@ -305,7 +321,13 @@ export function filterJobs(jobs, params = new URLSearchParams()) {
       return false;
     if (material && material !== "all" && job.material !== material)
       return false;
-    if (machine && machine !== "all" && !job.machineIds.includes(machine))
+    if (
+      machine &&
+      machine !== "all" &&
+      (machine === "unassigned"
+        ? !job.unassignedMachineEvents
+        : !job.machineIds.includes(machine))
+    )
       return false;
     if (facility && facility !== "all" && job.facility !== facility)
       return false;
@@ -336,8 +358,8 @@ export function filterJobs(jobs, params = new URLSearchParams()) {
 function rollups(jobs, eventsByJob, blockIntervalsByJob, periodStart, asOf) {
   const dayMap = new Map();
   if (periodStart && asOf) {
-    const start = Date.parse(periodStart.slice(0, 10) + "T00:00:00Z");
-    const end = Date.parse(asOf.slice(0, 10) + "T00:00:00Z");
+    const start = Date.parse(pacificDay(periodStart) + "T00:00:00Z");
+    const end = Date.parse(pacificDay(asOf) + "T00:00:00Z");
     for (let day = start; day <= end; day += DAY) {
       const date = new Date(day).toISOString().slice(0, 10);
       dayMap.set(date, { date, completed: 0, late: 0, good: 0, scrap: 0 });
@@ -348,7 +370,7 @@ function rollups(jobs, eventsByJob, blockIntervalsByJob, periodStart, asOf) {
   const materialMap = new Map();
   for (const job of jobs) {
     if (job.completedAt) {
-      const date = job.completedAt.slice(0, 10);
+      const date = pacificDay(job.completedAt);
       const day = dayMap.get(date) ?? {
         date,
         completed: 0,
@@ -377,6 +399,11 @@ function rollups(jobs, eventsByJob, blockIntervalsByJob, periodStart, asOf) {
     materialMap.set(job.material, material);
     for (const event of eventsByJob[job.id] ?? []) {
       if (
+        Date.parse(event.timestamp) < Date.parse(periodStart) ||
+        Date.parse(event.timestamp) > Date.parse(asOf)
+      )
+        continue;
+      if (
         event.event_type === "inspection_failed" &&
         !event.conflict &&
         finite(event.quantity)
@@ -387,6 +414,12 @@ function rollups(jobs, eventsByJob, blockIntervalsByJob, periodStart, asOf) {
     }
     const seenReasons = new Set();
     for (const interval of blockIntervalsByJob[job.id] ?? []) {
+      const start = Math.max(
+        Date.parse(interval.start),
+        Date.parse(periodStart),
+      );
+      const end = Math.min(Date.parse(interval.end ?? asOf), Date.parse(asOf));
+      if (end < start) continue;
       const reason = reasonMap.get(interval.reason) ?? {
         reason: interval.reason,
         jobs: 0,
@@ -395,7 +428,7 @@ function rollups(jobs, eventsByJob, blockIntervalsByJob, periodStart, asOf) {
       };
       if (!seenReasons.has(interval.reason)) reason.jobs++;
       if (!interval.end && job.blocked) reason.openJobs++;
-      reason.totalHours += interval.hours;
+      reason.totalHours += Math.max(0, (end - start) / HOUR);
       reasonMap.set(interval.reason, reason);
       seenReasons.add(interval.reason);
     }
@@ -479,8 +512,18 @@ function qualityFor(jobs, eventsByJob, extraIssues = []) {
 
 export function buildDataset(rawRows) {
   const { events } = normalizeEvents(rawRows);
-  const asOf = events.at(-1)?.timestamp ?? "";
-  const periodStart = events[0]?.timestamp ?? "";
+  const sourceRows = [...rawRows].sort(compareEvents);
+  return buildDatasetFromEvents(events, {
+    asOf: sourceRows.at(-1)?.timestamp ?? "",
+    periodStart: sourceRows[0]?.timestamp ?? "",
+  });
+}
+
+/** Project already-normalized events without dropping conflict provenance. */
+export function buildDatasetFromEvents(canonicalEvents, options = {}) {
+  const events = [...canonicalEvents].sort(compareEvents);
+  const asOf = options.asOf ?? events.at(-1)?.timestamp ?? "";
+  const periodStart = options.periodStart ?? events[0]?.timestamp ?? "";
   const eventsByJob = {};
   for (const event of events) (eventsByJob[event.job_id] ??= []).push(event);
   const jobs = [];
@@ -525,7 +568,12 @@ export function buildDataset(rawRows) {
     filters: {
       customers: unique(jobs.map((job) => job.customerId)),
       materials: unique(jobs.map((job) => job.material)),
-      machines: unique(jobs.flatMap((job) => job.machineIds)),
+      machines: unique([
+        ...jobs.flatMap((job) => job.machineIds),
+        ...(jobs.some((job) => job.unassignedMachineEvents)
+          ? ["unassigned"]
+          : []),
+      ]),
       facilities: unique(jobs.map((job) => job.facility)),
     },
     stats: summarizeJobs(jobs),
