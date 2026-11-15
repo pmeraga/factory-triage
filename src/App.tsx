@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowDownToLine,
@@ -20,7 +20,6 @@ import {
   Search,
   ShieldCheck,
   SlidersHorizontal,
-  Timer,
   X,
 } from "lucide-react";
 import type { Job, JobDetail, Overview } from "./types";
@@ -42,6 +41,31 @@ const emptyFilters: Filters = {
   facility: "",
   status: "open",
 };
+const views: View[] = ["overview", "jobs", "quality", "guide"];
+const statuses = ["open", "overdue", "blocked", "completed", "all"];
+function readLocation() {
+  const params = new URLSearchParams(window.location.search);
+  const requestedView = params.get("view") as View;
+  const view = views.includes(requestedView) ? requestedView : "overview";
+  const filters = Object.fromEntries(
+    Object.entries(emptyFilters).map(([key, value]) => [
+      key,
+      params.get(key) ?? value,
+    ]),
+  ) as Filters;
+  if (!params.has("status")) filters.status = view === "jobs" ? "all" : "open";
+  if (!statuses.includes(filters.status))
+    filters.status = view === "jobs" ? "all" : "open";
+  return { view, filters, job: params.get("job") || null };
+}
+function locationFor(view: View, filters: Filters, job: string | null = null) {
+  const params = new URLSearchParams({ view });
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) params.set(key, value);
+  });
+  if (job) params.set("job", job);
+  return `${window.location.pathname}?${params.toString()}`;
+}
 const n = (value: number) => new Intl.NumberFormat("en-US").format(value);
 const pct = (value: number | null) =>
   value === null ? "—" : `${(value * 100).toFixed(1)}%`;
@@ -49,6 +73,8 @@ const human = (value: string) =>
   value.replaceAll("_", " ").replace(/\b\w/g, (l) => l.toUpperCase());
 function date(value: string | null, includeTime = false) {
   if (!value) return "Not recorded";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Not recorded";
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
@@ -61,7 +87,7 @@ function date(value: string | null, includeTime = false) {
         }
       : {}),
     timeZone: "UTC",
-  }).format(new Date(value));
+  }).format(parsed);
 }
 function hours(value: number) {
   return value < 1
@@ -89,22 +115,20 @@ function Status({ job }: { job: Job }) {
 }
 
 export default function App() {
-  const [view, setView] = useState<View>("overview");
-  const [filters, setFilters] = useState<Filters>(() => {
-    const p = new URLSearchParams(window.location.search);
-    return Object.fromEntries(
-      Object.entries(emptyFilters).map(([k, v]) => [k, p.get(k) ?? v]),
-    ) as Filters;
-  });
+  const [view, setView] = useState<View>(() => readLocation().view);
+  const [filters, setFilters] = useState<Filters>(() => readLocation().filters);
   const [data, setData] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
+  const [loadedQuery, setLoadedQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedJob, setSelectedJob] = useState<string | null>(
-    new URLSearchParams(window.location.search).get("job"),
+    () => readLocation().job,
   );
   const [page, setPage] = useState(0);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const closeJob = useCallback(() => setSelectedJob(null), []);
   const query = useMemo(() => {
     const p = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => {
@@ -117,6 +141,7 @@ export default function App() {
     if (view !== "jobs") p.set("status", "all");
     return p.toString();
   }, [query, view]);
+  const resultsStale = loadedQuery !== requestQuery;
   const displayedJobs = useMemo(() => {
     if (!data) return [];
     if (view !== "overview") return data.jobs;
@@ -131,10 +156,10 @@ export default function App() {
   }, [data, view, filters.status]);
   useEffect(() => {
     const controller = new AbortController();
+    setLoading(true);
+    setError("");
     const timeout = window.setTimeout(
       () => {
-        setLoading(true);
-        setError("");
         fetch(`/api/overview?${requestQuery}`, { signal: controller.signal })
           .then(async (response) => {
             if (!response.ok)
@@ -143,7 +168,12 @@ export default function App() {
               );
             return response.json() as Promise<Overview>;
           })
-          .then(setData)
+          .then((result) => {
+            if (!controller.signal.aborted) {
+              setData(result);
+              setLoadedQuery(requestQuery);
+            }
+          })
           .catch((e) => {
             if (e.name !== "AbortError") setError(e.message);
           })
@@ -162,17 +192,45 @@ export default function App() {
     setPage(0);
   }, [query, view]);
   useEffect(() => {
-    const p = new URLSearchParams(query);
-    if (selectedJob) p.set("job", selectedJob);
-    window.history.replaceState(null, "", `?${p.toString()}`);
-  }, [query, selectedJob]);
+    window.history.replaceState(
+      null,
+      "",
+      locationFor(view, filters, selectedJob),
+    );
+  }, [view, filters, selectedJob]);
+  useEffect(() => {
+    const restore = () => {
+      const next = readLocation();
+      setView(next.view);
+      setFilters(next.filters);
+      setSelectedJob(next.job);
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
   const update = (key: keyof Filters, value: string) =>
     setFilters((f) => ({ ...f, [key]: value }));
   const navigate = (next: View) => {
+    if (next === view) return;
+    const nextFilters = {
+      ...filters,
+      status:
+        next === "jobs" ? "all" : next === "overview" ? "open" : filters.status,
+    };
+    window.history.pushState(null, "", locationFor(next, nextFilters));
     setView(next);
-    if (next === "jobs") update("status", "all");
-    if (next === "overview") update("status", "open");
+    setFilters(nextFilters);
+    setSelectedJob(null);
+    window.requestAnimationFrame(() => heading.current?.focus());
   };
+  const resetScope = () =>
+    setFilters((current) => ({ ...emptyFilters, status: current.status }));
+  const resetAll = () =>
+    setFilters({ ...emptyFilters, status: view === "jobs" ? "all" : "open" });
+  const safePage = Math.min(
+    page,
+    Math.max(0, Math.ceil(displayedJobs.length / 12) - 1),
+  );
   const activeFilters = Object.entries(filters).filter(
     ([k, v]) => k !== "status" && v,
   ).length;
@@ -184,9 +242,15 @@ export default function App() {
         : view === "quality"
           ? "Trust starts with the evidence."
           : "Understand the numbers.";
+  useEffect(() => {
+    document.title = `${view === "overview" ? "Overview" : view === "jobs" ? "All jobs" : view === "quality" ? "Quality & data" : "Metric guide"} · Factory Triage`;
+  }, [view]);
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+      <aside className="sidebar" inert={selectedJob ? true : undefined}>
         <button
           className="brand"
           onClick={() => navigate("overview")}
@@ -255,7 +319,7 @@ export default function App() {
           <ShieldCheck size={16} />
         </div>
       </aside>
-      <div className="main-shell">
+      <div className="main-shell" inert={selectedJob ? true : undefined}>
         <header className="topbar">
           <div className="breadcrumbs">
             Workspace <ChevronRight size={13} />
@@ -275,7 +339,7 @@ export default function App() {
             <span className="snapshot-tag">UTC</span>
           </div>
         </header>
-        <main>
+        <main id="main-content" tabIndex={-1}>
           <div className="page-heading">
             <div>
               <div className="eyebrow">
@@ -287,7 +351,9 @@ export default function App() {
                       ? "DATA RECONCILIATION"
                       : "BUILT ON EVIDENCE"}
               </div>
-              <h1>{title}</h1>
+              <h1 ref={heading} tabIndex={-1}>
+                {title}
+              </h1>
               <p>
                 {view === "overview"
                   ? "Find what needs attention. Follow every number back to its source."
@@ -321,6 +387,11 @@ export default function App() {
               >
                 Try again
               </button>
+              {activeFilters > 0 && (
+                <button className="button secondary" onClick={resetScope}>
+                  Clear scope filters
+                </button>
+              )}
             </div>
           )}
           {!data && loading && (
@@ -330,11 +401,23 @@ export default function App() {
               <span>Preparing jobs and source-event evidence.</span>
             </div>
           )}
-          {data && (
+          {data && !(error && resultsStale) && (
             <div
-              className={loading ? "content refreshing" : "content"}
-              aria-busy={loading}
+              className={
+                loading || resultsStale ? "content refreshing" : "content"
+              }
+              aria-busy={loading || resultsStale}
             >
+              <div className="request-status" role="status" aria-live="polite">
+                {loading || resultsStale ? (
+                  <>
+                    <LoaderCircle size={13} className="spin" /> Updating results
+                    for the selected filters…
+                  </>
+                ) : (
+                  ""
+                )}
+              </div>
               {(view === "overview" || view === "jobs") && (
                 <>
                   <div className="scope-note">
@@ -350,7 +433,15 @@ export default function App() {
                       </span>
                     )}
                   </div>
-                  <div className="stat-grid">
+                  <ScopeChips
+                    filters={filters}
+                    update={update}
+                    reset={resetScope}
+                  />
+                  <div
+                    className="stat-grid"
+                    inert={resultsStale ? true : undefined}
+                  >
                     <Stat
                       label="Open jobs"
                       value={n(data.stats.open)}
@@ -381,7 +472,10 @@ export default function App() {
                     />
                   </div>
                   {view === "overview" && (
-                    <div className="insights-grid">
+                    <div
+                      className="insights-grid"
+                      inert={resultsStale ? true : undefined}
+                    >
                       <Throughput data={data} />
                       <Blockers data={data} selectJob={setSelectedJob} />
                     </div>
@@ -424,6 +518,7 @@ export default function App() {
                           <button
                             key={value}
                             onClick={() => update("status", value)}
+                            aria-pressed={filters.status === value}
                             className={
                               filters.status === value ? "selected" : ""
                             }
@@ -453,6 +548,8 @@ export default function App() {
                         <button
                           className={`button filter-button ${showFilters || activeFilters ? "filter-active" : ""}`}
                           onClick={() => setShowFilters((s) => !s)}
+                          aria-expanded={showFilters}
+                          aria-controls="job-scope-filters"
                         >
                           <SlidersHorizontal size={15} />
                           Filters{activeFilters > 0 && <b>{activeFilters}</b>}
@@ -460,41 +557,13 @@ export default function App() {
                       </div>
                     </div>
                     {showFilters && (
-                      <div className="filter-row">
-                        {(
-                          [
-                            ["customer", "Customer", data.filters.customers],
-                            ["material", "Material", data.filters.materials],
-                            ["machine", "Machine", data.filters.machines],
-                            ["facility", "Facility", data.filters.facilities],
-                          ] as [keyof Filters, string, string[]][]
-                        ).map(([key, label, options]) => (
-                          <label key={key}>
-                            {label}
-                            <select
-                              value={filters[key]}
-                              onChange={(e) => update(key, e.target.value)}
-                            >
-                              <option value="">
-                                All {label.toLowerCase()}s
-                              </option>
-                              {options.map((v) => (
-                                <option value={v} key={v}>
-                                  {human(v)}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        ))}
-                        <button
-                          className="text-button"
-                          onClick={() =>
-                            setFilters({
-                              ...emptyFilters,
-                              status: filters.status,
-                            })
-                          }
-                        >
+                      <div className="filter-row" id="job-scope-filters">
+                        <FilterFields
+                          filters={filters}
+                          options={data.filters}
+                          update={update}
+                        />
+                        <button className="text-button" onClick={resetScope}>
                           Reset filters
                         </button>
                       </div>
@@ -516,20 +585,26 @@ export default function App() {
                             </thead>
                             <tbody>
                               {displayedJobs
-                                .slice(page * 12, (page + 1) * 12)
+                                .slice(safePage * 12, (safePage + 1) * 12)
                                 .map((job) => (
                                   <tr
                                     key={job.id}
-                                    onClick={() => setSelectedJob(job.id)}
-                                    tabIndex={0}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter")
-                                        setSelectedJob(job.id);
+                                    onClick={() => {
+                                      if (!resultsStale) setSelectedJob(job.id);
                                     }}
-                                    aria-label={`View ${job.id}`}
                                   >
                                     <td>
-                                      <strong className="mono">{job.id}</strong>
+                                      <button
+                                        className="job-link"
+                                        disabled={resultsStale}
+                                        aria-label={`Inspect job ${job.id}`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedJob(job.id);
+                                        }}
+                                      >
+                                        {job.id}
+                                      </button>
                                       <small>{job.partId}</small>
                                     </td>
                                     <td>
@@ -605,26 +680,33 @@ export default function App() {
                         </div>
                         <div className="table-footer">
                           <span>
-                            Showing {n(page * 12 + 1)}–
-                            {n(Math.min((page + 1) * 12, displayedJobs.length))}{" "}
+                            Showing {n(safePage * 12 + 1)}–
+                            {n(
+                              Math.min(
+                                (safePage + 1) * 12,
+                                displayedJobs.length,
+                              ),
+                            )}{" "}
                             of {n(displayedJobs.length)} jobs
                           </span>
                           <div>
                             <button
                               aria-label="Previous page"
-                              disabled={page === 0}
-                              onClick={() => setPage((p) => p - 1)}
+                              disabled={safePage === 0}
+                              onClick={() => setPage(safePage - 1)}
                             >
                               <ChevronLeft size={16} />
                             </button>
                             <span>
-                              {page + 1} /{" "}
+                              {safePage + 1} /{" "}
                               {Math.ceil(displayedJobs.length / 12)}
                             </span>
                             <button
                               aria-label="Next page"
-                              disabled={(page + 1) * 12 >= displayedJobs.length}
-                              onClick={() => setPage((p) => p + 1)}
+                              disabled={
+                                (safePage + 1) * 12 >= displayedJobs.length
+                              }
+                              onClick={() => setPage(safePage + 1)}
                             >
                               <ChevronRight size={16} />
                             </button>
@@ -636,10 +718,7 @@ export default function App() {
                         <Search size={25} />
                         <h3>No jobs match these filters.</h3>
                         <p>Try another search or broaden your selection.</p>
-                        <button
-                          className="button secondary"
-                          onClick={() => setFilters(emptyFilters)}
-                        >
+                        <button className="button secondary" onClick={resetAll}>
                           Reset all filters
                         </button>
                       </div>
@@ -656,7 +735,54 @@ export default function App() {
                 </>
               )}
               {view === "quality" && (
-                <Quality data={data} selectJob={setSelectedJob} />
+                <>
+                  <section
+                    className="panel quality-scope"
+                    aria-label="Quality data scope"
+                  >
+                    <div className="quality-scope-heading">
+                      <div>
+                        <strong>Quality data scope</strong>
+                        <p>Includes every job status in the selected scope.</p>
+                      </div>
+                      <label className="search-box">
+                        <Search size={16} />
+                        <input
+                          aria-label="Search quality data jobs"
+                          placeholder="Search jobs, parts, customers…"
+                          value={filters.search}
+                          onChange={(e) => update("search", e.target.value)}
+                        />
+                        {filters.search && (
+                          <button
+                            aria-label="Clear quality search"
+                            onClick={() => update("search", "")}
+                          >
+                            <X size={13} />
+                          </button>
+                        )}
+                      </label>
+                    </div>
+                    <div className="filter-row">
+                      <FilterFields
+                        filters={filters}
+                        options={data.filters}
+                        update={update}
+                      />
+                      <button className="text-button" onClick={resetScope}>
+                        Reset filters
+                      </button>
+                    </div>
+                  </section>
+                  <ScopeChips
+                    filters={filters}
+                    update={update}
+                    reset={resetScope}
+                  />
+                  <div inert={resultsStale ? true : undefined}>
+                    <Quality data={data} selectJob={setSelectedJob} />
+                  </div>
+                </>
               )}
               {view === "guide" && <Guide data={data} />}
             </div>
@@ -664,8 +790,81 @@ export default function App() {
         </main>
       </div>
       {selectedJob && (
-        <JobDrawer id={selectedJob} onClose={() => setSelectedJob(null)} />
+        <JobDrawer key={selectedJob} id={selectedJob} onClose={closeJob} />
       )}
+    </div>
+  );
+}
+function FilterFields({
+  filters,
+  options,
+  update,
+}: {
+  filters: Filters;
+  options: Overview["filters"];
+  update: (key: keyof Filters, value: string) => void;
+}) {
+  return (
+    <>
+      {(
+        [
+          ["customer", "Customer", "customers", options.customers],
+          ["material", "Material", "materials", options.materials],
+          ["machine", "Machine", "machines", options.machines],
+          ["facility", "Facility", "facilities", options.facilities],
+        ] as [keyof Filters, string, string, string[]][]
+      ).map(([key, label, plural, values]) => (
+        <label key={key}>
+          {label}
+          <select
+            value={filters[key]}
+            onChange={(event) => update(key, event.target.value)}
+          >
+            <option value="">All {plural}</option>
+            {filters[key] && !values.includes(filters[key]) && (
+              <option value={filters[key]}>{filters[key]} (not found)</option>
+            )}
+            {values.map((value) => (
+              <option key={value} value={value}>
+                {human(value)}
+              </option>
+            ))}
+          </select>
+        </label>
+      ))}
+    </>
+  );
+}
+function ScopeChips({
+  filters,
+  update,
+  reset,
+}: {
+  filters: Filters;
+  update: (key: keyof Filters, value: string) => void;
+  reset: () => void;
+}) {
+  const selected = Object.entries(filters).filter(
+    ([key, value]) => key !== "status" && value,
+  ) as [keyof Filters, string][];
+  if (!selected.length) return null;
+  return (
+    <div className="scope-chips" aria-label="Active scope filters">
+      {selected.map(([key, value]) => (
+        <button
+          key={key}
+          onClick={() => update(key, "")}
+          aria-label={`Remove ${key} filter: ${value}`}
+        >
+          <span>
+            {key === "search" ? "Search" : human(key)}: <strong>{value}</strong>
+          </span>
+          <X size={12} />
+        </button>
+      ))}
+      <button className="clear-scope" onClick={reset}>
+        Clear scope
+      </button>
     </div>
   );
 }
@@ -684,12 +883,9 @@ function Stat({
   tone?: string;
   onClick?: () => void;
 }) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <button
-      className={`stat-card ${tone}`}
-      onClick={onClick}
-      disabled={!onClick}
-    >
+    <Tag className={`stat-card ${tone}`} onClick={onClick}>
       <div className="stat-label">
         {label}
         <span className="stat-icon">{icon}</span>
@@ -700,7 +896,7 @@ function Stat({
         {detail}
         {onClick && <ArrowUpRight size={13} />}
       </div>
-    </button>
+    </Tag>
   );
 }
 function Throughput({ data }: { data: Overview }) {
@@ -894,15 +1090,12 @@ function Quality({
                 </h3>
                 <p>{issue.description}</p>
                 <div className="job-links">
-                  {issue.jobIds.slice(0, 12).map((id) => (
+                  {issue.jobIds.map((id) => (
                     <button key={id} onClick={() => selectJob(id)}>
                       {id}
                       <ArrowUpRight size={12} />
                     </button>
                   ))}
-                  {issue.jobIds.length > 12 && (
-                    <span>+{issue.jobIds.length - 12} more jobs</span>
-                  )}
                 </div>
                 {issue.eventIds && issue.eventIds.length > 0 && (
                   <small className="muted">
@@ -1090,6 +1283,7 @@ function Guide({ data }: { data: Overview }) {
 function JobDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const [detail, setDetail] = useState<JobDetail | null>(null);
   const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
   const [eventType, setEventType] = useState("all");
   const [conflictsOnly, setConflictsOnly] = useState(false);
   const [eventPage, setEventPage] = useState(0);
@@ -1101,33 +1295,56 @@ function JobDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     setError("");
     fetch(`/api/jobs/${encodeURIComponent(id)}`, { signal: controller.signal })
       .then(async (r) => {
-        if (!r.ok) throw new Error(`Job could not be loaded (${r.status}).`);
+        if (!r.ok)
+          throw new Error(
+            r.status === 404
+              ? "This job was not found. Check the job ID in the shared link."
+              : `Job could not be loaded (${r.status}). Please try again.`,
+          );
         return r.json();
       })
-      .then(setDetail)
+      .then((result) => {
+        if (!controller.signal.aborted) setDetail(result);
+      })
       .catch((e) => {
         if (e.name !== "AbortError") setError(e.message);
       });
     return () => controller.abort();
-  }, [id]);
+  }, [id, retry]);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const scroll = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     closeButton.current?.focus();
     const keydown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
       if (e.key === "Tab") {
-        const elements = dialog.current?.querySelectorAll<HTMLElement>(
+        const candidates = dialog.current?.querySelectorAll<HTMLElement>(
           'button:not([disabled]), a[href], select, input, summary, [tabindex="0"]',
         );
+        const elements = candidates
+          ? [...candidates].filter(
+              (element) => element.getClientRects().length > 0,
+            )
+          : [];
         if (!elements?.length) return;
         const first = elements[0],
           last = elements[elements.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
+        if (
+          e.shiftKey &&
+          (document.activeElement === first ||
+            !dialog.current?.contains(document.activeElement))
+        ) {
           e.preventDefault();
           last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
+        } else if (
+          !e.shiftKey &&
+          (document.activeElement === last ||
+            !dialog.current?.contains(document.activeElement))
+        ) {
           e.preventDefault();
           first.focus();
         }
@@ -1137,7 +1354,8 @@ function JobDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     return () => {
       document.removeEventListener("keydown", keydown);
       document.body.style.overflow = scroll;
-      previous?.focus();
+      if (previous?.isConnected) previous.focus();
+      else document.querySelector<HTMLElement>("main h1")?.focus();
     };
   }, [onClose]);
   useEffect(() => setEventPage(0), [eventType, conflictsOnly]);
@@ -1148,6 +1366,10 @@ function JobDrawer({ id, onClose }: { id: string; onClose: () => void }) {
         (eventType === "all" || e.event_type === eventType) &&
         (!conflictsOnly || e.conflict),
     ) ?? [];
+  const safeEventPage = Math.min(
+    eventPage,
+    Math.max(0, Math.ceil(events.length / 25) - 1),
+  );
   return (
     <div
       className="drawer-backdrop"
@@ -1178,7 +1400,14 @@ function JobDrawer({ id, onClose }: { id: string; onClose: () => void }) {
         </div>
         {error ? (
           <div className="error-state" role="alert">
-            {error}
+            <CircleAlert size={20} />
+            <p>{error}</p>
+            <button
+              className="button secondary"
+              onClick={() => setRetry((value) => value + 1)}
+            >
+              Try again
+            </button>
           </div>
         ) : !job || !detail ? (
           <div className="loading-state">
@@ -1395,7 +1624,7 @@ function JobDrawer({ id, onClose }: { id: string; onClose: () => void }) {
               </div>
               <div className="source-events">
                 {events
-                  .slice(eventPage * 25, (eventPage + 1) * 25)
+                  .slice(safeEventPage * 25, (safeEventPage + 1) * 25)
                   .map((e, i) => (
                     <details
                       className={`source-event ${e.conflict ? "has-conflict" : ""}`}
@@ -1440,21 +1669,21 @@ function JobDrawer({ id, onClose }: { id: string; onClose: () => void }) {
               {events.length > 25 && (
                 <div className="table-footer">
                   <span>
-                    {eventPage * 25 + 1}–
-                    {Math.min((eventPage + 1) * 25, events.length)} of{" "}
+                    {safeEventPage * 25 + 1}–
+                    {Math.min((safeEventPage + 1) * 25, events.length)} of{" "}
                     {events.length} events
                   </span>
                   <div>
                     <button
-                      disabled={!eventPage}
-                      onClick={() => setEventPage((p) => p - 1)}
+                      disabled={!safeEventPage}
+                      onClick={() => setEventPage(safeEventPage - 1)}
                       aria-label="Previous event page"
                     >
                       <ChevronLeft size={16} />
                     </button>
                     <button
-                      disabled={(eventPage + 1) * 25 >= events.length}
-                      onClick={() => setEventPage((p) => p + 1)}
+                      disabled={(safeEventPage + 1) * 25 >= events.length}
+                      onClick={() => setEventPage(safeEventPage + 1)}
                       aria-label="Next event page"
                     >
                       <ChevronRight size={16} />
