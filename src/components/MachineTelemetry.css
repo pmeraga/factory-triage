@@ -1,0 +1,785 @@
+.telemetry-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.tele-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.tele-stat {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tele-stat > span {
+  font-size: 11px;
+  color: var(--muted, #8c9daf);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tele-stat > strong {
+  font:
+    600 28px/1.2 ui-monospace,
+    SFMono-Regular,
+    monospace;
+  color: var(--text, #e6edf5);
+}
+.tele-stat > small {
+  font-size: 11px;
+  color: var(--muted, #8c9daf);
+}
+.tele-caption {
+  font-size: 11px;
+  color: var(--muted, #8c9daf);
+}
+.tele-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tele-actions .button {
+  font-size: 11px;
+  min-height: 32px;
+}
+.tele-machine-grid {
+  padding: 0 16px 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.tele-machine {
+  background: var(--bg, #0c1118);
+  border: 1px solid var(--border, #243241);
+  border-radius: 5px;
+  padding: 13px;
+  text-align: left;
+  color: var(--text, #e6edf5);
+  transition: border-color 0.15s;
+}
+.tele-machine.selected {
+  border-color: var(--cyan, #53d6df);
+  box-shadow: inset 0 0 0 1px rgba(83, 214, 223, 0.12);
+}
+.tele-machine:hover {
+  border-color: #607b91;
+}
+.tele-machine-title {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.tele-machine-title strong {
+  font:
+    600 13px ui-monospace,
+    monospace;
+}
+.tele-machine-title > span {
+  margin-left: auto;
+  color: var(--muted, #8c9daf);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+.tele-machine svg:not(:first-child) {
+  width: 100%;
+  height: 27px;
+  margin: 14px 0 8px;
+  color: var(--cyan, #53d6df);
+}
+.tele-machine-numbers {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted, #8c9daf);
+}
+.tele-machine-numbers b {
+  font-family: ui-monospace, monospace;
+  color: var(--text, #e6edf5);
+  font-size: 14px;
+}
+.tele-machine > small {
+  display: block;
+  font-size: 10px;
+  margin-top: 9px;
+  color: var(--muted, #8c9daf);
+  line-height: 1.5;
+}
+.tele-warning {
+  color: var(--amber, #f3bc68) !important;
+}
+.tele-channel-unit {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted, #8c9daf);
+  margin-left: 10px;
+}
+.tele-plot-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 18px 14px;
+  flex-wrap: wrap;
+}
+.tele-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg, #0c1118);
+  padding: 3px;
+  border: 1px solid var(--border, #243241);
+  border-radius: 4px;
+}
+.tele-tabs > button {
+  padding: 6px 11px;
+  color: var(--muted, #8c9daf);
+  font-size: 11px;
+  border-radius: 3px;
+}
+.tele-tabs > button.active {
+  background: #253742;
+  color: var(--cyan, #53d6df);
+}
+.tele-plot-controls {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.tele-plot-controls > label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--muted, #8c9daf);
+}
+.tele-plot-controls input {
+  width: 72px;
+  background: var(--bg, #0c1118);
+  border: 1px solid var(--border, #243241);
+  padding: 5px 6px;
+  color: var(--text, #e6edf5);
+  font:
+    12px ui-monospace,
+    monospace;
+  border-radius: 3px;
+}
+.tele-plot-controls .text-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.tele-plot-controls .text-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tele-plot-scroll {
+  overflow: auto;
+  padding: 0 12px;
+}
+.tele-chart {
+  display: block;
+  width: 100%;
+  min-width: 680px;
+  touch-action: pan-y;
+  user-select: none;
+  outline-offset: -2px;
+}
+.tele-chart text {
+  font:
+    11px ui-monospace,
+    SFMono-Regular,
+    monospace;
+  fill: #8398ad;
+}
+.tele-grid-line {
+  stroke: #243241;
+  stroke-width: 1;
+}
+.tele-grid-line.vertical {
+  stroke: #1d2b37;
+  stroke-dasharray: 3 5;
+}
+.tele-threshold {
+  stroke: #e2ad60;
+  stroke-dasharray: 5 5;
+  opacity: 0.8;
+}
+.tele-chart .tele-threshold-label {
+  fill: #e2ad60;
+  font-size: 10px;
+}
+.tele-cycle-point {
+  fill: #53d6df;
+  opacity: 0.7;
+}
+.tele-cycle-point.above {
+  fill: #f3bc68;
+}
+.tele-cycle-point.conflict {
+  fill: transparent;
+  stroke: #f3bc68;
+  stroke-width: 1.5;
+  opacity: 1;
+}
+.tele-event-bar {
+  fill: #53d6df;
+  opacity: 0.7;
+}
+.tele-crosshair {
+  stroke: #b5c6d8;
+  stroke-dasharray: 2 3;
+  opacity: 0.6;
+}
+.tele-active-point {
+  fill: #e6edf5;
+  stroke: #53d6df;
+  stroke-width: 2;
+}
+.tele-brush {
+  fill: rgba(83, 214, 223, 0.14);
+  stroke: #53d6df;
+  stroke-width: 1;
+}
+.tele-chart .tele-chart-empty {
+  font-family: inherit;
+  fill: #91a3b6;
+  font-size: 13px;
+}
+.tele-readout {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 11px 20px;
+  min-height: 46px;
+  border-top: 1px solid var(--border, #243241);
+  border-bottom: 1px solid var(--border, #243241);
+  color: var(--muted, #8c9daf);
+  font-size: 11px;
+  flex-wrap: wrap;
+}
+.tele-readout strong {
+  font:
+    600 14px ui-monospace,
+    monospace;
+  color: var(--text, #e6edf5);
+}
+.tele-readout code {
+  font-size: 11px;
+}
+.tele-readout button {
+  margin-left: auto;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  color: var(--cyan, #53d6df);
+  font-size: 11px;
+}
+.tele-readout-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #53d6df;
+}
+.tele-plot-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px 20px 8px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted, #8c9daf);
+}
+.tele-provenance-note {
+  padding: 0 20px 14px;
+  font-size: 10px;
+  line-height: 1.7;
+  color: #879bad;
+}
+.tele-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 18px;
+}
+.tele-stage-list {
+  padding: 0 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.tele-stage-list > div {
+  display: grid;
+  grid-template-columns: 25px 1fr 55px;
+  gap: 8px;
+  align-items: center;
+}
+.tele-stage-list > div > span {
+  font:
+    10px ui-monospace,
+    monospace;
+  color: var(--muted, #8c9daf);
+}
+.tele-stage-list strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.tele-stage-list b {
+  font:
+    600 15px ui-monospace,
+    monospace;
+  text-align: right;
+}
+.tele-stage-list > div > div {
+  grid-column: 2/4;
+  background: #22313d;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.tele-stage-list i {
+  display: block;
+  height: 100%;
+  background: #53d6df;
+}
+.tele-timing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0 18px 18px;
+  border: 1px solid var(--border, #243241);
+  border-radius: 4px;
+}
+.tele-timing-grid > div {
+  padding: 12px;
+  border-right: 1px solid var(--border, #243241);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tele-timing-grid > div:last-child {
+  border-right: 0;
+}
+.tele-timing-grid span {
+  font-size: 10px;
+  color: var(--muted, #8c9daf);
+}
+.tele-timing-grid strong {
+  font:
+    600 18px ui-monospace,
+    monospace;
+}
+.tele-timing-grid small {
+  font:
+    10px ui-monospace,
+    monospace;
+  color: var(--muted, #8c9daf);
+}
+.tele-recorded-signals select {
+  max-width: 160px;
+  padding: 6px 9px;
+  font-size: 11px;
+  color: var(--text, #e6edf5);
+  background: var(--bg, #0c1118);
+  border: 1px solid var(--border, #243241);
+  border-radius: 4px;
+}
+.tele-signal-list {
+  max-height: 398px;
+  overflow: auto;
+  padding: 0 18px 12px;
+}
+.tele-signal-list > button {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--border, #243241);
+  color: var(--text, #e6edf5);
+}
+.tele-signal-list > button:hover strong {
+  color: var(--cyan, #53d6df);
+}
+.tele-signal-list > button > svg {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--muted, #8c9daf);
+}
+.tele-signal-list strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.tele-signal-list p {
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 4px 0;
+  color: var(--muted, #8c9daf);
+}
+.tele-signal-list small {
+  font:
+    10px/1.5 ui-monospace,
+    monospace;
+  color: var(--muted, #8c9daf);
+}
+.tele-signal-dot {
+  margin-top: 4px;
+  width: 6px;
+  height: 6px;
+  background: #8599ad;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.tele-signal-dot.warning {
+  background: #f3bc68;
+}
+.tele-signal-dot.critical {
+  background: #ef8d86;
+}
+.tele-heatmap-scroll {
+  overflow: auto;
+  padding: 0 18px 18px;
+}
+.tele-heatmap-grid {
+  min-width: 690px;
+}
+.tele-heatmap-row {
+  display: grid;
+  grid-template-columns: 90px repeat(24, minmax(12px, 1fr));
+  gap: 4px;
+  margin: 4px 0;
+  align-items: center;
+}
+.tele-heatmap-row > span {
+  font:
+    10px ui-monospace,
+    monospace;
+  color: var(--muted, #8c9daf);
+}
+.tele-heatmap-hours {
+  margin-bottom: 9px;
+}
+.tele-heatmap-hours small {
+  text-align: center;
+  font:
+    9px ui-monospace,
+    monospace;
+  color: var(--muted, #8c9daf);
+}
+.tele-heatmap-row button {
+  height: 12px;
+  border: 1px solid rgba(83, 214, 223, 0.07);
+  border-radius: 2px;
+}
+.tele-heatmap-row button:hover {
+  outline: 1px solid #d6f9fb;
+}
+.tele-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 300px;
+  color: var(--muted, #8c9daf);
+  font-size: 13px;
+}
+.tele-error {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted, #8c9daf);
+}
+.tele-error h2 {
+  margin: 12px;
+  color: var(--text, #e6edf5);
+}
+.tele-error p {
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+@media (max-width: 1050px) {
+  .tele-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tele-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+  .tele-machine-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .telemetry-workspace {
+    gap: 12px;
+  }
+  .tele-stat-grid {
+    gap: 8px;
+  }
+  .tele-stat {
+    padding: 13px;
+  }
+  .tele-stat > span {
+    font-size: 10px;
+  }
+  .tele-stat > strong {
+    font-size: 23px;
+  }
+  .tele-stat > small {
+    font-size: 10px;
+    line-height: 1.5;
+  }
+  .tele-machine-grid {
+    padding: 0 12px 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .tele-machine {
+    padding: 10px;
+  }
+  .tele-machine-title strong {
+    font-size: 12px;
+  }
+  .tele-machine-title > span {
+    font-size: 8px;
+  }
+  .tele-machine > small {
+    font-size: 9px;
+  }
+  .tele-machine-numbers {
+    font-size: 10px;
+    flex-wrap: wrap;
+  }
+  .tele-plot-toolbar {
+    padding: 0 12px 12px;
+    gap: 10px;
+  }
+  .tele-plot-controls {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .tele-caption {
+    font-size: 10px;
+  }
+  .tele-plot-footer {
+    padding: 10px 12px;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .tele-provenance-note {
+    padding: 0 12px 12px;
+  }
+  .tele-readout {
+    padding: 10px 12px;
+    gap: 9px;
+  }
+  .tele-timing-grid {
+    grid-template-columns: 1fr;
+    margin: 0 12px 12px;
+  }
+  .tele-timing-grid > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--border, #243241);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+  .tele-timing-grid small {
+    grid-column: 1/3;
+  }
+  .tele-timing-grid > div:last-child {
+    border-bottom: 0;
+  }
+  .tele-signal-list {
+    padding: 0 12px 12px;
+  }
+  .tele-heatmap-scroll {
+    padding: 0 12px 12px;
+  }
+  .tele-actions .button {
+    font-size: 10px;
+  }
+  .tele-signal-panel .panel-heading {
+    flex-wrap: wrap;
+  }
+  .tele-signal-panel .tele-actions {
+    width: 100%;
+  }
+}
+
+.tele-workbench-grid {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+.tele-workbench-grid > .panel {
+  min-width: 0;
+}
+.tele-fleet {
+  display: flex;
+  flex-direction: column;
+  max-height: 590px;
+}
+.tele-fleet .panel-heading {
+  padding: 16px 14px;
+}
+.tele-fleet .tele-machine-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  overflow: auto;
+  padding: 0 10px 10px;
+  scrollbar-width: thin;
+}
+.tele-fleet .tele-machine {
+  flex: none;
+  padding: 10px;
+  position: relative;
+}
+.tele-fleet .tele-machine > svg {
+  position: absolute;
+  right: 10px;
+  top: 28px;
+  width: 68px;
+  height: 19px;
+  margin: 0;
+  opacity: 0.65;
+}
+.tele-fleet .tele-machine-numbers {
+  margin-top: 11px;
+  padding-right: 70px;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10px;
+}
+.tele-fleet .tele-machine-numbers b {
+  font-size: 12px;
+}
+.tele-fleet .tele-machine-title strong {
+  font-size: 12px;
+}
+.tele-fleet .tele-machine > small {
+  font-size: 9px;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+.tele-asset-summary {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 0 18px 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10px;
+}
+.tele-asset-summary strong {
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+  font-weight: 500;
+}
+.tele-signal-panel .panel-heading {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.tele-signal-panel .tele-actions {
+  margin-left: auto;
+}
+.tele-workbench-grid .tele-chart {
+  min-width: 550px;
+}
+.tele-fleet .empty-state {
+  padding: 22px 12px;
+}
+.tele-fleet .empty-state h3 {
+  font-size: 13px;
+}
+@media (max-width: 1100px) {
+  .tele-workbench-grid {
+    grid-template-columns: 1fr;
+  }
+  .tele-fleet {
+    max-height: 255px;
+  }
+  .tele-fleet .tele-machine-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-height: 175px;
+  }
+  .tele-fleet .tele-machine > small {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tele-workbench-grid .tele-chart {
+    min-width: 680px;
+  }
+}
+@media (max-width: 700px) {
+  .tele-fleet .tele-machine-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tele-asset-summary {
+    gap: 12px;
+    margin: 0 12px 12px;
+  }
+  .tele-signal-panel .tele-actions {
+    margin-left: 0;
+  }
+  .tele-fleet .tele-machine-title strong {
+    font-size: 11px;
+  }
+  .tele-fleet .tele-machine-title > span {
+    display: none;
+  }
+  .tele-fleet .tele-machine > svg {
+    width: 52px;
+  }
+  .tele-fleet .tele-machine-numbers {
+    padding-right: 54px;
+  }
+}
+
+.tele-event-bar.active {
+  fill: #b1edf1;
+  opacity: 1;
+}
+
+.tele-markers-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tele-markers-toggle.selected {
+  color: var(--amber);
+}
+.tele-markers-toggle b {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  border: 1px solid var(--border);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.tele-source-marker {
+  cursor: pointer;
+  outline: none;
+}
+.tele-source-marker path {
+  fill: #f3bc68;
+  stroke: #121a24;
+  stroke-width: 1.5;
+}
+.tele-source-marker:hover path,
+.tele-source-marker:focus path {
+  fill: #fff1d6;
+  stroke: #f3bc68;
+  stroke-width: 2;
+}
+.tele-plot-controls {
+  flex-wrap: wrap;
+  gap: 12px;
+}
